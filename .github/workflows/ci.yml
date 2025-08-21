@@ -1,38 +1,85 @@
-# This workflow will build a Java project with Gradle
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-gradle
+# This workflow builds a Java project with Gradle, submits a dependency graph for security analysis,
+# and then builds and pushes a Docker image to Docker Hub.
 
-name: Java CI with Gradle
+name: Java CI, Security Scan, and Docker Push
 
 on:
   push:
-    branches: [ master ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "master" ]
 
 jobs:
-  build-java:
-
+  # Job 1: Build the Java application using Gradle
+  build:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read # Read permissions are needed to check out the code
+
     steps:
-    - uses: actions/checkout@v2
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 1.8
-      uses: actions/setup-java@v1
-      with:
-        java-version: 1.8
+      # Step 2: Set up JDK 17
+      # Using a modern Long-Term Support (LTS) version of Java.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      # Step 3: Setup Gradle with caching
+      # This action configures Gradle and caches dependencies to speed up subsequent builds.
+      # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-    - name: Build with Gradle
-      run: ./gradlew build
+      # Step 4: Build with Gradle Wrapper
+      # This command compiles the code, runs tests, and packages the application.
+      - name: Build with Gradle Wrapper
+        run: ./gradlew build
 
-    - name: Build and Push Docker Image
-      uses: mr-smithers-excellent/docker-build-push@v4
-      with:
-        image: celso12354/celso:tagname
-        registry: docker.io
-        username: ${{ DOCKER_CELSO }}
-        password: ${{ DOCKER_1234 }}
-         
+      # Step 5: Log in to Docker Hub
+      # Securely logs into Docker Hub using secrets.
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' # Only run on push to master
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # Step 6: Build and push the Docker image
+      # This step only runs on a push to the master branch to avoid pushing images for every pull request.
+      - name: Build and Push Docker Image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' # Only run on push to master
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: celso12354/celso:${{ github.sha }} # Creates a unique tag based on the commit SHA
+
+  # Job 2: Submit dependency graph to GitHub for security analysis
+  dependency-submission:
+    runs-on: ubuntu-latest
+    needs: build # This job runs after the 'build' job completes successfully
+    permissions:
+      contents: write # Write permissions are required to submit the dependency graph
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Generate and submit dependency graph
+      # This enables Dependabot alerts for your project's dependencies.
+      # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v3
