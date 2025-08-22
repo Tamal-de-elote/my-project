@@ -2,17 +2,18 @@
 # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-gradle
 
 name: Java CI with Gradle
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-    
+
 jobs:
   build-java:
 
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v2
 
@@ -27,15 +28,8 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew build
 
-    # Login to Docker Hub
-    - name: Login to Docker Hub
-      run: |
-        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-        docker info  # This will show Docker info and help debug any login issues
-
-    # Build and Push Docker Image
     - name: Build and Push Docker Image
-      uses: mr-smithers-excellent/docker-build-push@v4
+      uses: mr-smithers-excellent/docker-build-push@v6
       with:
         image: celso12354/celso
         registry: docker.io
