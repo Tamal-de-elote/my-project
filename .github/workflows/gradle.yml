@@ -32,5 +32,5 @@ jobs:
       with:
         image: celso12354/celso
         registry: docker.io
-        username: ${{ secrets.DOCKER_CELSO }}
-        password: ${{ secrets.DOCKER_123 }}
+        username: ${{ secrets.celso12354 }}
+        password: ${{ secrets.17111075zx/A1 }}
